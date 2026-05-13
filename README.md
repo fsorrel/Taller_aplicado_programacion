@@ -9,3 +9,9 @@
 
   Run `npm run dev` to start the development server.
   
+## Pagina
+  http://localhost:5173
+  
+## Base de datos
+  http://localhost:8081/h2-console/login.do
+  jdbc:h2:mem:ecoconce
