@@ -14,6 +14,9 @@ import cl.ecoconce.service.MapperService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
+import cl.ecoconce.dto.LoginRequest;
+import cl.ecoconce.dto.UsuarioSesionDto;
+import java.time.LocalDateTime;
 
 import java.util.List;
 
@@ -64,7 +67,25 @@ public class UsuarioController {
                 .build());
         return mapper.toUsuarioResumen(usuario);
     }
+    @PostMapping("/login")
+    @Transactional
+    public UsuarioSesionDto login(@Valid @RequestBody LoginRequest request) {
+        Usuario usuario = usuarioRepository.findByCorreo(request.correo())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
 
+        if (!"S".equalsIgnoreCase(usuario.getActivo())) {
+            throw new ReglaNegocioException("Usuario inactivo");
+        }
+
+        if (!usuario.getContrasena().equals(request.contrasena())) {
+            throw new ReglaNegocioException("Credenciales incorrectas");
+        }
+
+        usuario.setFechaUltimoAcceso(LocalDateTime.now());
+        Usuario actualizado = usuarioRepository.save(usuario);
+
+        return mapper.toUsuarioSesion(actualizado);
+    }
 
     public UsuarioController(UsuarioRepository usuarioRepository, ComunaRepository comunaRepository, RolRepository rolRepository, MapperService mapper) {
         this.usuarioRepository = usuarioRepository;

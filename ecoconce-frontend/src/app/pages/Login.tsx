@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Recycle } from "lucide-react";
-import { api, BdRow, getRolePath, saveCurrentUser } from "../lib/api";
+import { api, getRolePath, saveCurrentUser } from "../lib/api";
 
 
 export function Login() {
@@ -20,11 +20,12 @@ export function Login() {
     setError("");
     setLoading(true);
     try {
-      const usuarios = await api.usuarios();
-      const usuario = usuarios.find((item: BdRow) => String(item.correo).toLowerCase() === email.toLowerCase());
-      if (!usuario) throw new Error("No existe un usuario registrado con ese correo");
-      if (String(usuario.contrasena) !== password) throw new Error("Contraseña incorrecta");
-      const usuarioSesion = saveCurrentUser(usuario as Record<string, unknown>);
+      const usuario = await api.login({
+        correo: email,
+        contrasena: password,
+      });
+
+      const usuarioSesion = saveCurrentUser(usuario as unknown as Record<string, unknown>);
       navigate(getRolePath(usuarioSesion));
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión");

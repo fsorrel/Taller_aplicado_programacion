@@ -239,6 +239,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ observacion }),
     }),
+  login: (body: { correo: string; contrasena: string }) =>
+    apiFetch<UsuarioSesion>("/api/usuarios/login", { method: "POST", body: JSON.stringify(body) }),
   registrarUsuario: (body: unknown) => apiFetch<UsuarioResumen>("/api/usuarios", { method: "POST", body: JSON.stringify(body) }),
 };
 

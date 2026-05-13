@@ -21,6 +21,27 @@ public class MapperService {
         );
     }
 
+    public UsuarioSesionDto toUsuarioSesion(Usuario usuario) {
+    return new UsuarioSesionDto(
+            usuario.getId(),
+            usuario.getRut(),
+            usuario.getNombreAlias(),
+            usuario.getCorreo(),
+            usuario.getSexoGenero(),
+            usuario.getFechaNacimiento(),
+            usuario.getTelefono(),
+            usuario.getComuna() == null ? null : usuario.getComuna().getId(),
+            usuario.getComuna() == null ? null : usuario.getComuna().getNombre(),
+            usuario.getDireccion(),
+            usuario.getPuntos(),
+            usuario.getRol() == null ? null : usuario.getRol().getId(),
+            usuario.getRol() == null ? null : usuario.getRol().getNombre(),
+            usuario.getActivo(),
+            usuario.getFechaRegistro(),
+            usuario.getFechaUltimoAcceso()
+    );
+}
+
     public MaterialDto toMaterial(Material material) {
         return new MaterialDto(
                 material.getId(),
