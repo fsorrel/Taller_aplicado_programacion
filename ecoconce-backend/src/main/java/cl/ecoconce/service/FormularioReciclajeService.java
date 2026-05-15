@@ -42,19 +42,21 @@ public class FormularioReciclajeService {
     );
 
     @Transactional
-    public FormularioResponse crear(FormularioRequest request) {
-        Usuario usuario = usuarioRepository.findById(request.usuarioId())
+    public FormularioResponse crear(Long usuarioId, FormularioRequest request) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
         PuntoReciclaje punto = puntoRepository.findById(request.puntoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Punto de reciclaje no encontrado"));
 
         validarDistancia(request.distanciaMetros(), punto);
 
+        String estadoInicial = punto.getMantenedor() == null ? "PUNTO_SIN_REVISOR" : "PENDIENTE";
+
         FormularioReciclaje formulario = FormularioReciclaje.builder()
                 .usuario(usuario)
                 .punto(punto)
                 .distanciaMetros(request.distanciaMetros())
-                .estado("PENDIENTE")
+                .estado(estadoInicial)
                 .observacion(request.observacion())
                 .totalPuntosObtenidos(0)
                 .build();
@@ -71,7 +73,7 @@ public class FormularioReciclajeService {
             detalleRepository.save(DetalleFormularioMaterial.builder()
                     .formulario(formulario)
                     .material(material)
-                    .cantidadDeclarada(item.cantidadDeclarada())
+                    .cantidadDeclarada(item.cantidadDeclarada().doubleValue())
                     .unidadDeclarada(unidad)
                     .puntosObtenidos(puntos)
                     .observacion(item.observacion())
@@ -119,8 +121,14 @@ public class FormularioReciclajeService {
     }
 
     private void validarDistancia(Double distancia, PuntoReciclaje punto) {
-        if (distancia == null || distancia < 0) throw new ReglaNegocioException("La distancia no puede ser negativa");
-        if (distancia > 50) throw new ReglaNegocioException("El formulario solo acepta puntos a 50 metros o menos");
+        if (distancia == null || distancia <= 0) {
+            throw new ReglaNegocioException("Debes calcular la distancia con GPS antes de enviar el formulario");
+        }
+
+        if (distancia > 50) {
+            throw new ReglaNegocioException("El formulario solo acepta puntos a 50 metros o menos");
+        }
+
         if (punto.getRadioValidacionM() != null && distancia > punto.getRadioValidacionM()) {
             throw new ReglaNegocioException("Estás fuera del radio permitido para este punto de reciclaje");
         }
@@ -149,7 +157,7 @@ public class FormularioReciclajeService {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private int calcularPuntos(Material material, Double cantidad) {
+    private int calcularPuntos(Material material, Integer cantidad) {
         int base = switch (material.getCodigoIdentificador().toUpperCase(Locale.ROOT)) {
             case "PILAS" -> 25;
             case "ELECTRONICOS" -> 30;
@@ -166,7 +174,7 @@ public class FormularioReciclajeService {
             case "PAPEL_BLANCO_TINTA_NEGRA" -> 9;
             default -> 5;
         };
-        return Math.max(1, (int) Math.round(base * cantidad));
+        return Math.max(1, base * cantidad);
     }
 
 

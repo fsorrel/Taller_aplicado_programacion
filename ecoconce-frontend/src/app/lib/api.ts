@@ -120,7 +120,6 @@ export type Dashboard = {
 export type BdRow = Record<string, string | number | boolean | null>;
 
 export type FormularioRequest = {
-  usuarioId: number;
   puntoId: number;
   distanciaMetros: number;
   observacion: string;
@@ -231,8 +230,10 @@ export const api = {
   comunas: () => apiFetch<BdRow[]>("/api/bd/comunas"),
   formularios: () => apiFetch<BdRow[]>("/api/bd/formularios-reciclaje"),
   detalleFormularios: () => apiFetch<BdRow[]>("/api/bd/detalle-formulario-materiales"),
-  crearFormulario: (body: FormularioRequest) =>
-    apiFetch("/api/formularios", { method: "POST", body: JSON.stringify(body) }),
+  crearFormulario: (usuarioId: number, body: FormularioRequest) =>
+    apiFetch(`/api/formularios/usuario/${usuarioId}`, {
+      method: "POST",
+      body: JSON.stringify(body),}),
   aprobarFormulario: (id: number) => apiFetch(`/api/formularios/${id}/aprobar`, { method: "PUT" }),
   rechazarFormulario: (id: number, observacion: string) =>
     apiFetch(`/api/formularios/${id}/rechazar`, {
