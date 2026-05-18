@@ -1,4 +1,4 @@
-//routes.tsx
+// routes.tsx
 import { createBrowserRouter } from "react-router";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
@@ -9,6 +9,7 @@ import { FormulariosReciclaje } from "./pages/FormulariosReciclaje";
 import { Guides } from "./pages/Guides";
 import { CitizenProfile } from "./pages/CitizenProfile";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminUsers } from "./pages/AdminUsers";
 import { MaintainerDashboard } from "./pages/MaintainerDashboard";
 import { ManagePoints } from "./pages/ManagePoints";
 import { DashboardLayout } from "./components/DashboardLayout";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
     Component: DashboardLayout,
     children: [
       { index: true, Component: AdminDashboard },
+      { path: "usuarios", Component: AdminUsers },
       { path: "puntos", Component: ManagePoints },
     ],
   },

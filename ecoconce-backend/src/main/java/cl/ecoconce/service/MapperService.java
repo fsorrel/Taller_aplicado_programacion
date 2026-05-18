@@ -96,4 +96,28 @@ public class MapperService {
     public MapperService(PuntoMaterialRepository puntoMaterialRepository) {
         this.puntoMaterialRepository = puntoMaterialRepository;
     }
+    public UsuarioAdminDto toUsuarioAdminDto(Usuario usuario) {
+    boolean protegido = usuario.getCorreo() != null
+            && usuario.getCorreo().equalsIgnoreCase("admin@ecoconce.cl");
+
+    return new UsuarioAdminDto(
+            usuario.getId(),
+            usuario.getRut(),
+            usuario.getNombreAlias(),
+            usuario.getCorreo(),
+            usuario.getSexoGenero(),
+            usuario.getFechaNacimiento(),
+            usuario.getTelefono(),
+            usuario.getComuna() == null ? null : usuario.getComuna().getId(),
+            usuario.getComuna() == null ? null : usuario.getComuna().getNombre(),
+            usuario.getDireccion(),
+            usuario.getPuntos(),
+            usuario.getRol() == null ? null : usuario.getRol().getId(),
+            usuario.getRol() == null ? null : usuario.getRol().getNombre(),
+            usuario.getActivo(),
+            usuario.getFechaRegistro(),
+            usuario.getFechaUltimoAcceso(),
+            protegido
+    );
+}
 }

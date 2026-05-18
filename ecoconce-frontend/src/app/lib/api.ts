@@ -55,6 +55,36 @@ export type UsuarioSesion = {
   fechaUltimoAcceso: string;
 };
 
+export type UsuarioAdmin = {
+  id: number;
+  rut: string;
+  nombreAlias: string;
+  correo: string;
+  sexoGenero: string;
+  fechaNacimiento: string | null;
+  telefono: string | null;
+  comunaId: number | null;
+  comuna: string | null;
+  direccion: string | null;
+  puntos: number;
+  rolId: number | null;
+  rol: string | null;
+  activo: string;
+  fechaRegistro: string | null;
+  fechaUltimoAcceso: string | null;
+  protegido: boolean;
+};
+
+export type UsuarioAdminUpdateRequest = {
+  nombreAlias: string;
+  correo: string;
+  telefono: string;
+  comunaId: number | null;
+  direccion: string;
+  rolId: number;
+  activo: string;
+};
+
 export type ResumenReciclaje = {
   materialesReciclados: number;
   puntosGanados: number;
@@ -227,20 +257,31 @@ export const api = {
   materiales: () => apiFetch<Material[]>("/api/materiales"),
   guias: () => apiFetch<Guia[]>("/api/guias"),
   usuarios: () => apiFetch<BdRow[]>("/api/bd/usuarios"),
+  usuariosActivosAdmin: () => apiFetch<UsuarioAdmin[]>("/api/usuarios/admin/activos"),
+  actualizarUsuarioAdmin: (id: number, body: UsuarioAdminUpdateRequest) =>
+    apiFetch<UsuarioAdmin>(`/api/usuarios/admin/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   comunas: () => apiFetch<BdRow[]>("/api/bd/comunas"),
   formularios: () => apiFetch<BdRow[]>("/api/bd/formularios-reciclaje"),
   detalleFormularios: () => apiFetch<BdRow[]>("/api/bd/detalle-formulario-materiales"),
   crearFormulario: (usuarioId: number, body: FormularioRequest) =>
     apiFetch(`/api/formularios/usuario/${usuarioId}`, {
       method: "POST",
-      body: JSON.stringify(body),}),
+      body: JSON.stringify(body),
+    }),
   aprobarFormulario: (id: number) => apiFetch(`/api/formularios/${id}/aprobar`, { method: "PUT" }),
   rechazarFormulario: (id: number, observacion: string) =>
     apiFetch(`/api/formularios/${id}/rechazar`, {
       method: "PUT",
       body: JSON.stringify({ observacion }),
     }),
-  registrarUsuario: (body: unknown) => apiFetch<UsuarioResumen>("/api/usuarios", { method: "POST", body: JSON.stringify(body) }),
+  registrarUsuario: (body: unknown) =>
+    apiFetch<UsuarioResumen>("/api/usuarios", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export async function findUsuarioByEmail(correo: string) {

@@ -1,7 +1,25 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { Home, Map, ClipboardList, BookOpen, User, Settings, LogOut, BarChart3, MapPin, Users } from "lucide-react";
+import {
+  Home,
+  Map,
+  ClipboardList,
+  BookOpen,
+  User,
+  Settings,
+  LogOut,
+  BarChart3,
+  MapPin,
+  Users,
+} from "lucide-react";
 import { Button } from "./ui/button";
-import { clearCurrentUser, getCurrentUser, getNormalizedRoleName, getRolePath, refreshCurrentUserFromBackend, UsuarioSesion } from "../lib/api";
+import {
+  clearCurrentUser,
+  getCurrentUser,
+  getNormalizedRoleName,
+  getRolePath,
+  refreshCurrentUserFromBackend,
+  UsuarioSesion,
+} from "../lib/api";
 import { useEffect, useMemo, useState } from "react";
 
 const navItems = {
@@ -14,8 +32,8 @@ const navItems = {
   ],
   admin: [
     { icon: BarChart3, label: "Resumen", path: "/admin" },
+    { icon: Users, label: "Usuarios activos", path: "/admin/usuarios" },
     { icon: MapPin, label: "Puntos de Reciclaje", path: "/admin/puntos" },
-    { icon: Users, label: "Usuarios", path: "/admin" },
     { icon: BookOpen, label: "Contenido", path: "/admin" },
   ],
   mantenedor: [
@@ -24,7 +42,10 @@ const navItems = {
   ],
 };
 
-const roleLabel = (currentRole: "ciudadano" | "admin" | "mantenedor", usuario: UsuarioSesion | null) => {
+const roleLabel = (
+  currentRole: "ciudadano" | "admin" | "mantenedor",
+  usuario: UsuarioSesion | null
+) => {
   if (currentRole === "admin") return "Administrador";
   if (currentRole === "mantenedor") return "Mantenedor";
   return `${(usuario?.puntos ?? 0).toLocaleString("es-CL")} Pts`;
@@ -123,11 +144,17 @@ export function DashboardLayout() {
             <div className="w-10 h-10 bg-[#6fae7f] rounded-full flex items-center justify-center">
               <User className="w-6 h-6" />
             </div>
+
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{usuario?.nombreAlias ?? "Usuario EcoConce"}</p>
-              <p className="text-sm text-white/70 truncate">{roleLabel(currentRole, usuario)}</p>
+              <p className="font-medium truncate">
+                {usuario?.nombreAlias ?? "Usuario EcoConce"}
+              </p>
+              <p className="text-sm text-white/70 truncate">
+                {roleLabel(currentRole, usuario)}
+              </p>
             </div>
           </div>
+
           <Button
             onClick={handleLogout}
             variant="outline"
