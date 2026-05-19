@@ -11,6 +11,10 @@ import java.util.List;
 public class MapperService {
     private final PuntoMaterialRepository puntoMaterialRepository;
 
+    public MapperService(PuntoMaterialRepository puntoMaterialRepository) {
+        this.puntoMaterialRepository = puntoMaterialRepository;
+    }
+
     public UsuarioResumenDto toUsuarioResumen(Usuario usuario) {
         return new UsuarioResumenDto(
                 usuario.getId(),
@@ -34,16 +38,21 @@ public class MapperService {
         List<String> materiales = puntoMaterialRepository.findByPuntoId(punto.getId()).stream()
                 .map(pm -> pm.getMaterial().getNombre())
                 .toList();
+
         return new PuntoReciclajeDto(
                 punto.getId(),
                 punto.getNombre(),
                 punto.getDescripcion(),
-                punto.getComuna().getNombre(),
+                punto.getComuna() == null ? null : punto.getComuna().getId(),
+                punto.getComuna() == null ? null : punto.getComuna().getNombre(),
                 punto.getDireccion(),
                 punto.getLatitud(),
                 punto.getLongitud(),
                 punto.getRadioValidacionM(),
-                punto.getEstado().getNombre(),
+                punto.getEstado() == null ? null : punto.getEstado().getId(),
+                punto.getEstado() == null ? null : punto.getEstado().getNombre(),
+                punto.getMantenedor() == null ? null : punto.getMantenedor().getId(),
+                punto.getMantenedor() == null ? null : punto.getMantenedor().getNombreAlias(),
                 materiales
         );
     }
@@ -92,32 +101,28 @@ public class MapperService {
         );
     }
 
-
-    public MapperService(PuntoMaterialRepository puntoMaterialRepository) {
-        this.puntoMaterialRepository = puntoMaterialRepository;
-    }
     public UsuarioAdminDto toUsuarioAdminDto(Usuario usuario) {
-    boolean protegido = usuario.getCorreo() != null
-            && usuario.getCorreo().equalsIgnoreCase("admin@ecoconce.cl");
+        boolean protegido = usuario.getCorreo() != null
+                && usuario.getCorreo().equalsIgnoreCase("admin@ecoconce.cl");
 
-    return new UsuarioAdminDto(
-            usuario.getId(),
-            usuario.getRut(),
-            usuario.getNombreAlias(),
-            usuario.getCorreo(),
-            usuario.getSexoGenero(),
-            usuario.getFechaNacimiento(),
-            usuario.getTelefono(),
-            usuario.getComuna() == null ? null : usuario.getComuna().getId(),
-            usuario.getComuna() == null ? null : usuario.getComuna().getNombre(),
-            usuario.getDireccion(),
-            usuario.getPuntos(),
-            usuario.getRol() == null ? null : usuario.getRol().getId(),
-            usuario.getRol() == null ? null : usuario.getRol().getNombre(),
-            usuario.getActivo(),
-            usuario.getFechaRegistro(),
-            usuario.getFechaUltimoAcceso(),
-            protegido
-    );
-}
+        return new UsuarioAdminDto(
+                usuario.getId(),
+                usuario.getRut(),
+                usuario.getNombreAlias(),
+                usuario.getCorreo(),
+                usuario.getSexoGenero(),
+                usuario.getFechaNacimiento(),
+                usuario.getTelefono(),
+                usuario.getComuna() == null ? null : usuario.getComuna().getId(),
+                usuario.getComuna() == null ? null : usuario.getComuna().getNombre(),
+                usuario.getDireccion(),
+                usuario.getPuntos(),
+                usuario.getRol() == null ? null : usuario.getRol().getId(),
+                usuario.getRol() == null ? null : usuario.getRol().getNombre(),
+                usuario.getActivo(),
+                usuario.getFechaRegistro(),
+                usuario.getFechaUltimoAcceso(),
+                protegido
+        );
+    }
 }

@@ -104,13 +104,36 @@ export type PuntoReciclaje = {
   id: number;
   nombre: string;
   descripcion: string;
+  comunaId: number | null;
   comuna: string;
   direccion: string;
   latitud: number;
   longitud: number;
   radioValidacionM: number;
+  estadoId: number | null;
   estado: string;
+  mantenedorId: number | null;
+  mantenedor: string | null;
   materiales: string[];
+};
+
+export type PuntoMaterialRequest = {
+  materialId: number;
+  capacidadCompactado: number;
+  actualCompactado: number;
+};
+
+export type PuntoReciclajeRequest = {
+  nombre: string;
+  descripcion: string;
+  comunaId: number;
+  direccion: string;
+  latitud: number;
+  longitud: number;
+  radioValidacionM: number;
+  estadoId: number;
+  mantenedorId: number | null;
+  materiales: PuntoMaterialRequest[];
 };
 
 export type Material = {
@@ -253,30 +276,67 @@ export function getRolePath(usuario: Pick<UsuarioSesion, "rolId" | "rol" | "corr
 
 export const api = {
   dashboard: (usuarioId = 1) => apiFetch<Dashboard>(`/api/dashboard/${usuarioId}`),
+
   puntos: () => apiFetch<PuntoReciclaje[]>("/api/puntos"),
+
+  crearPuntoAdmin: (body: PuntoReciclajeRequest) =>
+    apiFetch<PuntoReciclaje>("/api/puntos/admin", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  actualizarPuntoAdmin: (id: number, body: PuntoReciclajeRequest) =>
+    apiFetch<PuntoReciclaje>(`/api/puntos/admin/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  desactivarPuntoAdmin: (id: number) =>
+    apiFetch<PuntoReciclaje>(`/api/puntos/admin/${id}/desactivar`, {
+      method: "PUT",
+    }),
+
+    activarPuntoAdmin: (id: number) =>
+      apiFetch<PuntoReciclaje>(`/api/puntos/admin/${id}/activar`, {
+        method: "PUT",
+      }),
   materiales: () => apiFetch<Material[]>("/api/materiales"),
   guias: () => apiFetch<Guia[]>("/api/guias"),
+
   usuarios: () => apiFetch<BdRow[]>("/api/bd/usuarios"),
+
   usuariosActivosAdmin: () => apiFetch<UsuarioAdmin[]>("/api/usuarios/admin/activos"),
+
   actualizarUsuarioAdmin: (id: number, body: UsuarioAdminUpdateRequest) =>
     apiFetch<UsuarioAdmin>(`/api/usuarios/admin/${id}`, {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+
   comunas: () => apiFetch<BdRow[]>("/api/bd/comunas"),
+
+  estadosPunto: () => apiFetch<BdRow[]>("/api/bd/estado-punto"),
+
   formularios: () => apiFetch<BdRow[]>("/api/bd/formularios-reciclaje"),
   detalleFormularios: () => apiFetch<BdRow[]>("/api/bd/detalle-formulario-materiales"),
+
   crearFormulario: (usuarioId: number, body: FormularioRequest) =>
     apiFetch(`/api/formularios/usuario/${usuarioId}`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  aprobarFormulario: (id: number) => apiFetch(`/api/formularios/${id}/aprobar`, { method: "PUT" }),
+
+  aprobarFormulario: (id: number) =>
+    apiFetch(`/api/formularios/${id}/aprobar`, {
+      method: "PUT",
+    }),
+
   rechazarFormulario: (id: number, observacion: string) =>
     apiFetch(`/api/formularios/${id}/rechazar`, {
       method: "PUT",
       body: JSON.stringify({ observacion }),
     }),
+
   registrarUsuario: (body: unknown) =>
     apiFetch<UsuarioResumen>("/api/usuarios", {
       method: "POST",
