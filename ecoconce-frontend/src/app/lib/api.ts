@@ -136,6 +136,11 @@ export type PuntoReciclajeRequest = {
   materiales: PuntoMaterialRequest[];
 };
 
+export type PuntoEstadoRequest = {
+  estadoId: number;
+  descripcion: string;
+};
+
 export type Material = {
   id: number;
   nombre: string;
@@ -279,6 +284,9 @@ export const api = {
 
   puntos: () => apiFetch<PuntoReciclaje[]>("/api/puntos"),
 
+  puntosMantenedor: (mantenedorId: number) =>
+    apiFetch<PuntoReciclaje[]>(`/api/puntos/mantenedor/${mantenedorId}`),
+
   crearPuntoAdmin: (body: PuntoReciclajeRequest) =>
     apiFetch<PuntoReciclaje>("/api/puntos/admin", {
       method: "POST",
@@ -296,10 +304,21 @@ export const api = {
       method: "PUT",
     }),
 
-    activarPuntoAdmin: (id: number) =>
-      apiFetch<PuntoReciclaje>(`/api/puntos/admin/${id}/activar`, {
-        method: "PUT",
-      }),
+  activarPuntoAdmin: (id: number) =>
+    apiFetch<PuntoReciclaje>(`/api/puntos/admin/${id}/activar`, {
+      method: "PUT",
+    }),
+
+  actualizarEstadoPuntoMantenedor: (
+    mantenedorId: number,
+    puntoId: number,
+    body: PuntoEstadoRequest
+  ) =>
+    apiFetch<PuntoReciclaje>(`/api/puntos/mantenedor/${mantenedorId}/${puntoId}/estado`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
   materiales: () => apiFetch<Material[]>("/api/materiales"),
   guias: () => apiFetch<Guia[]>("/api/guias"),
 

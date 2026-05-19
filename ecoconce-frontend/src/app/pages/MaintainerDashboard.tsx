@@ -1,444 +1,318 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle, MapPin, RefreshCw, Save, Wrench } from "lucide-react";
+import { api, BdRow, getCurrentUser, PuntoReciclaje } from "../lib/api";
 import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
-import { Switch } from "../components/ui/switch";
-import { 
-  MapPin, 
-  Activity, 
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Package,
-  TrendingUp,
-  Edit,
-  Save
-} from "lucide-react";
+
+const getRowId = (row: BdRow) => Number(row.id ?? row.ID ?? 0);
+const getRowName = (row: BdRow) => String(row.nombre ?? row.NOMBRE ?? row.name ?? row.NAME ?? "");
+
+const estadoColor = (estado: string) => {
+  const normalizado = estado?.toUpperCase();
+
+  if (normalizado.includes("INACTIVO")) {
+    return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+
+  if (normalizado.includes("OPERATIVO") || normalizado.includes("ACTIVO")) {
+    return "bg-green-100 text-green-700 border-green-200";
+  }
+
+  if (normalizado.includes("LLENO") || normalizado.includes("COLAPSADO")) {
+    return "bg-red-100 text-red-700 border-red-200";
+  }
+
+  if (normalizado.includes("MANTENIMIENTO")) {
+    return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  }
+
+  return "bg-blue-100 text-blue-700 border-blue-200";
+};
 
 export function MaintainerDashboard() {
-  const [isEditing, setIsEditing] = useState(false);
-  const [pointData, setPointData] = useState({
-    name: "Ecopunto Plaza Perú",
-    address: "Plaza Perú, Concepción",
-    status: "Activo",
-    capacity: 65,
-    hours: "Lun-Dom 24/7",
-    materials: {
-      plastico: true,
-      papel: true,
-      vidrio: true,
-      metal: true,
-      organico: false,
-      electronicos: false,
-    },
-    notes: "",
-  });
+  const usuario = getCurrentUser();
+  const mantenedorId = usuario?.id ?? 0;
 
-  const stats = [
-    { 
-      label: "Visitas Hoy", 
-      value: "24", 
-      icon: Activity, 
-      color: "text-blue-600",
-      bgColor: "bg-blue-50" 
-    },
-    { 
-      label: "Capacidad Actual", 
-      value: "65%", 
-      icon: Package, 
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-50" 
-    },
-    {
-      label: "Materiales Compactados Hoy",
-      value: "127",
-      icon: TrendingUp,
-      color: "text-green-600",
-      bgColor: "bg-green-50"
-    },
-    { 
-      label: "Tiempo Activo", 
-      value: "24/7", 
-      icon: Clock, 
-      color: "text-purple-600",
-      bgColor: "bg-purple-50" 
-    },
-  ];
+  const [puntos, setPuntos] = useState<PuntoReciclaje[]>([]);
+  const [estados, setEstados] = useState<BdRow[]>([]);
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState<Record<number, number>>({});
+  const [descripcion, setDescripcion] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const recentActivity = [
-    { user: "María González", material: "Plástico", compacted: "2 materiales", time: "Hace 15 min" },
-    { user: "Carlos Ramírez", material: "Papel", compacted: "3 materiales", time: "Hace 30 min" },
-    { user: "Ana Silva", material: "Vidrio", compacted: "4 materiales", time: "Hace 1 hora" },
-    { user: "Pedro Morales", material: "Metal", compacted: "2 materiales", time: "Hace 2 horas" },
-  ];
+  const totalOperativos = useMemo(() => {
+    return puntos.filter((punto) => punto.estado?.toUpperCase().includes("OPERATIVO")).length;
+  }, [puntos]);
 
-  const weeklyData = [
-    { day: "Lun", visits: 28, compacted: 156 },
-    { day: "Mar", visits: 32, compacted: 178 },
-    { day: "Mié", visits: 25, compacted: 142 },
-    { day: "Jue", visits: 30, compacted: 168 },
-    { day: "Vie", visits: 35, compacted: 195 },
-    { day: "Sáb", visits: 22, compacted: 125 },
-    { day: "Dom", visits: 18, compacted: 98 },
-  ];
+  const totalAlertas = useMemo(() => {
+    return puntos.filter((punto) => {
+      const estado = (punto.estado ?? "").toUpperCase();
+      return estado.includes("LLENO") || estado.includes("MANTENIMIENTO") || estado.includes("INACTIVO");
+    }).length;
+  }, [puntos]);
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // Here you would save the data
+  const cargarDatos = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (!mantenedorId) {
+        throw new Error("No se encontró el mantenedor activo. Inicia sesión nuevamente.");
+      }
+
+      const [puntosData, estadosData] = await Promise.all([
+        api.puntosMantenedor(mantenedorId),
+        api.estadosPunto(),
+      ]);
+
+      setPuntos(puntosData);
+      setEstados(estadosData);
+
+      const estadosIniciales: Record<number, number> = {};
+      const descripcionesIniciales: Record<number, string> = {};
+
+      puntosData.forEach((punto) => {
+        estadosIniciales[punto.id] = punto.estadoId ?? 1;
+        descripcionesIniciales[punto.id] = "";
+      });
+
+      setEstadoSeleccionado(estadosIniciales);
+      setDescripcion(descripcionesIniciales);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los puntos del mantenedor");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Activo":
-        return "bg-green-100 text-green-700";
-      case "Congestionado":
-        return "bg-yellow-100 text-yellow-700";
-      case "Colapsado":
-        return "bg-red-100 text-red-700";
-      case "Inactivo":
-        return "bg-gray-100 text-gray-700";
-      default:
-        return "bg-gray-100 text-gray-700";
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const actualizarEstado = async (punto: PuntoReciclaje) => {
+    const nuevoEstadoId = estadoSeleccionado[punto.id];
+
+    if (!nuevoEstadoId) {
+      setError("Debes seleccionar un estado válido.");
+      return;
+    }
+
+    setSavingId(punto.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await api.actualizarEstadoPuntoMantenedor(mantenedorId, punto.id, {
+        estadoId: Number(nuevoEstadoId),
+        descripcion: descripcion[punto.id] ?? "",
+      });
+
+      setSuccess(`Estado de "${punto.nombre}" actualizado correctamente.`);
+      await cargarDatos();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado del punto");
+    } finally {
+      setSavingId(null);
     }
   };
 
   return (
     <div className="p-8 space-y-8 bg-[#f5f7f5]">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#2d4437] mb-2">Mi Punto de Reciclaje</h1>
-          <p className="text-gray-600">Gestiona y actualiza el estado de tu punto asignado</p>
+          <div className="flex items-center gap-3">
+            <Wrench className="w-8 h-8 text-[#3d5a47]" />
+            <h1 className="text-3xl font-bold text-[#2d4437]">
+              Panel del Mantenedor
+            </h1>
+          </div>
+          <p className="text-gray-600 mt-2">
+            Revisa tus puntos asignados y actualiza su estado operativo.
+          </p>
         </div>
+
         <Button
-          onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          className={isEditing ? "bg-green-600 hover:bg-green-700" : "bg-[#3d5a47] hover:bg-[#2d4437]"}
+          variant="outline"
+          onClick={cargarDatos}
+          disabled={loading}
+          className="border-[#3d5a47] text-[#3d5a47]"
         >
-          {isEditing ? (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              Guardar Cambios
-            </>
-          ) : (
-            <>
-              <Edit className="w-4 h-4 mr-2" />
-              Editar Punto
-            </>
-          )}
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
         </Button>
       </div>
 
-      {/* Point Info Card */}
-      <Card className="border-[#6fae7f]/20 bg-gradient-to-r from-[#3d5a47] to-[#6fae7f] text-white">
-        <CardContent className="p-8">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-4">
-                <MapPin className="w-8 h-8" />
-                <div>
-                  <h2 className="text-2xl font-bold">{pointData.name}</h2>
-                  <p className="text-lg opacity-90">{pointData.address}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <Badge className={`${getStatusColor(pointData.status)} border-0 text-base px-4 py-1`}>
-                  {pointData.status}
-                </Badge>
-                <span className="text-sm opacity-90">{pointData.hours}</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 flex gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index} className="border-[#6fae7f]/20">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 ${stat.bgColor} rounded-full flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
+      {success && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 flex gap-2">
+          <CheckCircle className="w-5 h-5 shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-3 gap-6">
+        <Card className="border-[#6fae7f]/20">
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-[#2d4437] mb-1">{puntos.length}</p>
+            <p className="text-sm text-gray-600">Puntos asignados</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#6fae7f]/20">
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-green-600 mb-1">{totalOperativos}</p>
+            <p className="text-sm text-gray-600">Operativos</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#6fae7f]/20">
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-yellow-600 mb-1">{totalAlertas}</p>
+            <p className="text-sm text-gray-600">Requieren atención</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {loading ? (
+        <Card>
+          <CardContent className="p-12 text-center text-gray-500">
+            Cargando puntos asignados...
+          </CardContent>
+        </Card>
+      ) : puntos.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-400 mb-2">
+              No tienes puntos asignados
+            </h3>
+            <p className="text-gray-500">
+              Un administrador debe asignarte puntos de reciclaje para que puedas gestionarlos.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid xl:grid-cols-2 gap-6">
+          {puntos.map((punto) => (
+            <Card key={punto.id} className="border-[#6fae7f]/20 hover:shadow-lg transition">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-2xl font-bold text-[#2d4437]">{stat.value}</p>
-                    <p className="text-sm text-gray-600">{stat.label}</p>
+                    <CardTitle className="text-[#2d4437]">{punto.nombre}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {punto.direccion}
+                    </CardDescription>
                   </div>
+
+                  <Badge className={estadoColor(punto.estado)}>
+                    {punto.estado}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-5">
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Comuna</p>
+                    <p className="font-medium text-[#2d4437]">{punto.comuna}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Radio validación</p>
+                    <p className="font-medium text-[#2d4437]">{punto.radioValidacionM} m</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Latitud</p>
+                    <p className="font-medium text-[#2d4437]">{punto.latitud}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Longitud</p>
+                    <p className="font-medium text-[#2d4437]">{punto.longitud}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">Materiales aceptados</p>
+                  <div className="flex flex-wrap gap-2">
+                    {punto.materiales.length > 0 ? (
+                      punto.materiales.map((material, index) => (
+                        <Badge
+                          key={`${punto.id}-${material}-${index}`}
+                          variant="outline"
+                          className="border-[#6fae7f]"
+                        >
+                          {material}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">Sin materiales asociados</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-2">
+                    <Label>Nuevo estado</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      value={estadoSeleccionado[punto.id] ?? punto.estadoId ?? ""}
+                      onChange={(e) =>
+                        setEstadoSeleccionado({
+                          ...estadoSeleccionado,
+                          [punto.id]: Number(e.target.value),
+                        })
+                      }
+                    >
+                      {estados.map((estado) => (
+                        <option key={getRowId(estado)} value={getRowId(estado)}>
+                          {getRowName(estado)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Observación</Label>
+                    <Textarea
+                      value={descripcion[punto.id] ?? ""}
+                      onChange={(e) =>
+                        setDescripcion({
+                          ...descripcion,
+                          [punto.id]: e.target.value,
+                        })
+                      }
+                      placeholder="Ej: Contenedor lleno, punto limpiado, requiere retiro..."
+                    />
+                  </div>
+
+                  <Button
+                    onClick={() => actualizarEstado(punto)}
+                    disabled={savingId === punto.id}
+                    className="w-full bg-[#3d5a47] hover:bg-[#2d4437]"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {savingId === punto.id ? "Guardando..." : "Actualizar estado"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column - Management */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Status Management */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">Actualizar Estado</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Status Selection */}
-              <div className="space-y-3">
-                <Label>Estado del Punto</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {["Activo", "Congestionado", "Colapsado", "Inactivo"].map((status) => (
-                    <Button
-                      key={status}
-                      variant={pointData.status === status ? "default" : "outline"}
-                      className={
-                        pointData.status === status
-                          ? "bg-[#3d5a47] hover:bg-[#2d4437]"
-                          : "border-gray-300"
-                      }
-                      onClick={() => isEditing && setPointData({ ...pointData, status })}
-                      disabled={!isEditing}
-                    >
-                      {status}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Capacity Slider */}
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <Label>Nivel de Capacidad</Label>
-                  <span className="font-bold text-[#2d4437]">{pointData.capacity}%</span>
-                </div>
-                <div className="space-y-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={pointData.capacity}
-                    onChange={(e) =>
-                      isEditing && setPointData({ ...pointData, capacity: parseInt(e.target.value) })
-                    }
-                    disabled={!isEditing}
-                    className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${
-                        pointData.capacity >= 90
-                          ? "bg-red-500"
-                          : pointData.capacity >= 70
-                          ? "bg-yellow-500"
-                          : "bg-green-500"
-                      }`}
-                      style={{ width: `${pointData.capacity}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Hours */}
-              <div className="space-y-2">
-                <Label htmlFor="hours">Horario de Atención</Label>
-                <Input
-                  id="hours"
-                  value={pointData.hours}
-                  onChange={(e) => setPointData({ ...pointData, hours: e.target.value })}
-                  disabled={!isEditing}
-                  className={!isEditing ? "bg-gray-50" : ""}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Materials Accepted */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">Materiales Aceptados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {Object.entries(pointData.materials).map(([material, accepted]) => (
-                  <div
-                    key={material}
-                    className="flex items-center justify-between p-4 bg-[#f5f7f5] rounded-lg"
-                  >
-                    <Label htmlFor={material} className="capitalize cursor-pointer">
-                      {material}
-                    </Label>
-                    <Switch
-                      id={material}
-                      checked={accepted}
-                      onCheckedChange={(checked) =>
-                        isEditing &&
-                        setPointData({
-                          ...pointData,
-                          materials: { ...pointData.materials, [material]: checked },
-                        })
-                      }
-                      disabled={!isEditing}
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notes / Incidents */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">Notas e Incidentes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Reporta cualquier incidente o observación importante..."
-                value={pointData.notes}
-                onChange={(e) => setPointData({ ...pointData, notes: e.target.value })}
-                disabled={!isEditing}
-                rows={5}
-                className={!isEditing ? "bg-gray-50" : ""}
-              />
-              {isEditing && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Los administradores recibirán una notificación sobre cualquier incidente reportado.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Weekly Performance */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">Rendimiento Semanal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {weeklyData.map((day) => (
-                  <div key={day.day} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-[#2d4437]">{day.day}</span>
-                      <div className="flex items-center gap-4 text-gray-600">
-                        <span>{day.visits} visitas</span>
-                        <span className="font-bold">{day.compacted} materiales</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#6fae7f]"
-                        style={{ width: `${(day.compacted / 200) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          ))}
         </div>
-
-        {/* Right Column - Activity */}
-        <div className="space-y-8">
-          {/* Quick Alerts */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437] flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-[#3d5a47]" />
-                Alertas Rápidas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pointData.capacity >= 90 && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm font-medium text-red-900">Capacidad crítica</p>
-                  <p className="text-xs text-red-700">El punto está cerca de su límite</p>
-                </div>
-              )}
-              {pointData.capacity >= 70 && pointData.capacity < 90 && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm font-medium text-yellow-900">Capacidad alta</p>
-                  <p className="text-xs text-yellow-700">Considera vaciar pronto</p>
-                </div>
-              )}
-              {pointData.capacity < 70 && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-green-900">Estado óptimo</p>
-                    <p className="text-xs text-green-700">El punto funciona correctamente</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">Actividad Reciente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="p-3 bg-[#f5f7f5] rounded-lg">
-                    <div className="flex items-start justify-between mb-1">
-                      <p className="font-medium text-sm text-[#2d4437]">{activity.user}</p>
-                      <Badge variant="outline" className="text-xs border-[#6fae7f]">
-                        {activity.material}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>{activity.compacted}</span>
-                      <span>{activity.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Monthly Summary */}
-          <Card className="border-[#6fae7f]/20 bg-gradient-to-br from-[#6fae7f] to-[#3d5a47] text-white">
-            <CardContent className="p-6">
-              <h3 className="font-bold text-lg mb-4">Resumen del Mes</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm opacity-90">Total Visitantes</span>
-                  <span className="font-bold text-2xl">567</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm opacity-90">Materiales Compactados</span>
-                  <span className="font-bold text-2xl">1,200</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm opacity-90">Días Activo</span>
-                  <span className="font-bold text-2xl">28/30</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm opacity-90">Promedio Diario</span>
-                  <span className="font-bold text-2xl">19 visitas</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Help */}
-          <Card className="border-[#6fae7f]/20">
-            <CardHeader>
-              <CardTitle className="text-[#2d4437]">¿Necesitas Ayuda?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-gray-600">
-                Contacta al equipo de administración si necesitas asistencia o reportar un problema.
-              </p>
-              <Button className="w-full bg-[#3d5a47] hover:bg-[#2d4437]">
-                Contactar Administración
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

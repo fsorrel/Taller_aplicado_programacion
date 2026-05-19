@@ -1,5 +1,6 @@
 package cl.ecoconce.controller;
 
+import cl.ecoconce.dto.PuntoEstadoRequest;
 import cl.ecoconce.dto.PuntoMaterialRequest;
 import cl.ecoconce.dto.PuntoReciclajeDto;
 import cl.ecoconce.dto.PuntoReciclajeRequest;
@@ -129,6 +130,7 @@ public class PuntoReciclajeController {
         PuntoReciclaje actualizado = puntoRepository.save(punto);
         return mapper.toPunto(actualizado);
     }
+
     @Transactional
     @PutMapping("/admin/{id}/activar")
     public PuntoReciclajeDto activarAdmin(@PathVariable Long id) {
@@ -142,6 +144,41 @@ public class PuntoReciclajeController {
 
         PuntoReciclaje actualizado = puntoRepository.save(punto);
         return mapper.toPunto(actualizado);
+    }
+
+    @Transactional
+    @PutMapping("/mantenedor/{mantenedorId}/{puntoId}/estado")
+    public PuntoReciclajeDto actualizarEstadoMantenedor(
+            @PathVariable Long mantenedorId,
+            @PathVariable Long puntoId,
+            @Valid @RequestBody PuntoEstadoRequest request
+    ) {
+        PuntoReciclaje punto = puntoRepository.findById(puntoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Punto de reciclaje no encontrado"));
+
+        validarPuntoPerteneceAlMantenedor(punto, mantenedorId);
+
+        EstadoPunto estado = estadoRepository.findById(request.estadoId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Estado de punto no encontrado"));
+
+        punto.setEstado(estado);
+
+        PuntoReciclaje actualizado = puntoRepository.save(punto);
+        return mapper.toPunto(actualizado);
+    }
+
+    private void validarPuntoPerteneceAlMantenedor(PuntoReciclaje punto, Long mantenedorId) {
+        if (punto.getMantenedor() == null) {
+            throw new ReglaNegocioException("Este punto no tiene mantenedor asignado");
+        }
+
+        if (!punto.getMantenedor().getId().equals(mantenedorId)) {
+            throw new ReglaNegocioException("No puedes modificar un punto asignado a otro mantenedor");
+        }
+
+        if (!"S".equalsIgnoreCase(punto.getMantenedor().getActivo())) {
+            throw new ReglaNegocioException("El mantenedor asignado no está activo");
+        }
     }
 
     private void aplicarDatosPunto(PuntoReciclaje punto, PuntoReciclajeRequest request) {
