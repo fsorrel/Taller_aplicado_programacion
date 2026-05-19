@@ -11,6 +11,7 @@ import { CitizenProfile } from "./pages/CitizenProfile";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminUsers } from "./pages/AdminUsers";
 import { MaintainerDashboard } from "./pages/MaintainerDashboard";
+import { MaintainerPointDetail } from "./pages/MaintainerPointDetail";
 import { ManagePoints } from "./pages/ManagePoints";
 import { DashboardLayout } from "./components/DashboardLayout";
 
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
     Component: DashboardLayout,
     children: [
       { index: true, Component: MaintainerDashboard },
+      { path: "puntos/:id", Component: MaintainerPointDetail },
     ],
   },
 ]);

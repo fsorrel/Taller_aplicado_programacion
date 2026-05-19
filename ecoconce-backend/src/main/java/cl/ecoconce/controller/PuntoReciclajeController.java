@@ -4,6 +4,7 @@ import cl.ecoconce.dto.PuntoEstadoRequest;
 import cl.ecoconce.dto.PuntoMaterialRequest;
 import cl.ecoconce.dto.PuntoReciclajeDto;
 import cl.ecoconce.dto.PuntoReciclajeRequest;
+import cl.ecoconce.dto.PuntoMaterialUpdateRequest;
 import cl.ecoconce.entity.Comuna;
 import cl.ecoconce.entity.EstadoPunto;
 import cl.ecoconce.entity.Material;
@@ -22,6 +23,7 @@ import cl.ecoconce.service.MapperService;
 import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.HashSet;
 import java.util.List;
@@ -165,6 +167,60 @@ public class PuntoReciclajeController {
 
         PuntoReciclaje actualizado = puntoRepository.save(punto);
         return mapper.toPunto(actualizado);
+    }
+
+    @Transactional
+    @PutMapping("/mantenedor/{mantenedorId}/{puntoId}/materiales")
+    public PuntoReciclajeDto actualizarMaterialesMantenedor(
+            @PathVariable Long mantenedorId,
+            @PathVariable Long puntoId,
+            @Valid @RequestBody List<PuntoMaterialUpdateRequest> request
+    ) {
+        if (request == null || request.isEmpty()) {
+            throw new ReglaNegocioException("Debes enviar al menos un material para actualizar");
+        }
+
+        PuntoReciclaje punto = puntoRepository.findById(puntoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Punto de reciclaje no encontrado"));
+
+        validarPuntoPerteneceAlMantenedor(punto, mantenedorId);
+
+        List<PuntoMaterial> materialesActuales = puntoMaterialRepository.findByPuntoId(puntoId);
+
+        if (materialesActuales.isEmpty()) {
+            throw new ReglaNegocioException("Este punto no tiene materiales asociados");
+        }
+
+        Set<Long> materialesUsados = new HashSet<>();
+
+        for (PuntoMaterialUpdateRequest item : request) {
+            if (!materialesUsados.add(item.materialId())) {
+                throw new ReglaNegocioException("No se puede repetir el mismo material en la actualización");
+            }
+
+            PuntoMaterial puntoMaterial = materialesActuales.stream()
+                    .filter(pm -> pm.getMaterial().getId().equals(item.materialId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ReglaNegocioException("El material no está asociado a este punto"));
+
+            Integer capacidadCompactado = item.capacidadCompactado() == null ? 0 : item.capacidadCompactado();
+            Integer actualCompactado = item.actualCompactado() == null ? 0 : item.actualCompactado();
+
+            if (capacidadCompactado < 0 || actualCompactado < 0) {
+                throw new ReglaNegocioException("Las cantidades no pueden ser negativas");
+            }
+
+            if (capacidadCompactado > 0 && actualCompactado > capacidadCompactado) {
+                throw new ReglaNegocioException("La cantidad actual no puede superar la capacidad compactada");
+            }
+
+            puntoMaterial.setCapacidadCompactado(capacidadCompactado);
+            puntoMaterial.setActualCompactado(actualCompactado);
+        }
+
+        puntoMaterialRepository.saveAll(materialesActuales);
+
+        return mapper.toPunto(punto);
     }
 
     private void validarPuntoPerteneceAlMantenedor(PuntoReciclaje punto, Long mantenedorId) {

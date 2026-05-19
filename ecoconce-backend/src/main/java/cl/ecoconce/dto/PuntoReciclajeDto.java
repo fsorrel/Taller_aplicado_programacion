@@ -16,6 +16,7 @@ public record PuntoReciclajeDto(
         String estado,
         Long mantenedorId,
         String mantenedor,
-        List<String> materiales
+        List<String> materiales,
+        List<PuntoMaterialDto> materialesDetalle
 ) {
 }

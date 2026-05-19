@@ -35,8 +35,27 @@ public class MapperService {
     }
 
     public PuntoReciclajeDto toPunto(PuntoReciclaje punto) {
-        List<String> materiales = puntoMaterialRepository.findByPuntoId(punto.getId()).stream()
+        List<PuntoMaterial> puntoMateriales = puntoMaterialRepository.findByPuntoId(punto.getId());
+
+        List<String> materiales = puntoMateriales.stream()
                 .map(pm -> pm.getMaterial().getNombre())
+                .toList();
+
+        List<PuntoMaterialDto> materialesDetalle = puntoMateriales.stream()
+                .map(pm -> {
+                    Integer capacidad = pm.getCapacidadCompactado() == null ? 0 : pm.getCapacidadCompactado();
+                    Integer actual = pm.getActualCompactado() == null ? 0 : pm.getActualCompactado();
+                    boolean lleno = capacidad > 0 && actual >= capacidad;
+
+                    return new PuntoMaterialDto(
+                            pm.getMaterial().getId(),
+                            pm.getMaterial().getNombre(),
+                            capacidad,
+                            actual,
+                            lleno,
+                            !lleno
+                    );
+                })
                 .toList();
 
         return new PuntoReciclajeDto(
@@ -53,7 +72,8 @@ public class MapperService {
                 punto.getEstado() == null ? null : punto.getEstado().getNombre(),
                 punto.getMantenedor() == null ? null : punto.getMantenedor().getId(),
                 punto.getMantenedor() == null ? null : punto.getMantenedor().getNombreAlias(),
-                materiales
+                materiales,
+                materialesDetalle
         );
     }
 

@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle, MapPin, RefreshCw, Save, Wrench } from "lucide-react";
-import { api, BdRow, getCurrentUser, PuntoReciclaje } from "../lib/api";
+import { Link } from "react-router";
+import {
+  AlertCircle,
+  CheckCircle,
+  MapPin,
+  RefreshCw,
+  Wrench,
+  ArrowRight,
+  Package,
+} from "lucide-react";
+import { api, getCurrentUser, PuntoReciclaje } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
-
-const getRowId = (row: BdRow) => Number(row.id ?? row.ID ?? 0);
-const getRowName = (row: BdRow) => String(row.nombre ?? row.NOMBRE ?? row.name ?? row.NAME ?? "");
 
 const estadoColor = (estado: string) => {
   const normalizado = estado?.toUpperCase();
@@ -37,11 +41,7 @@ export function MaintainerDashboard() {
   const mantenedorId = usuario?.id ?? 0;
 
   const [puntos, setPuntos] = useState<PuntoReciclaje[]>([]);
-  const [estados, setEstados] = useState<BdRow[]>([]);
-  const [estadoSeleccionado, setEstadoSeleccionado] = useState<Record<number, number>>({});
-  const [descripcion, setDescripcion] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -52,8 +52,18 @@ export function MaintainerDashboard() {
   const totalAlertas = useMemo(() => {
     return puntos.filter((punto) => {
       const estado = (punto.estado ?? "").toUpperCase();
-      return estado.includes("LLENO") || estado.includes("MANTENIMIENTO") || estado.includes("INACTIVO");
+      return (
+        estado.includes("LLENO") ||
+        estado.includes("MANTENIMIENTO") ||
+        estado.includes("INACTIVO")
+      );
     }).length;
+  }, [puntos]);
+
+  const totalMaterialesLlenos = useMemo(() => {
+    return puntos.reduce((total, punto) => {
+      return total + (punto.materialesDetalle ?? []).filter((material) => material.lleno).length;
+    }, 0);
   }, [puntos]);
 
   const cargarDatos = async () => {
@@ -66,24 +76,9 @@ export function MaintainerDashboard() {
         throw new Error("No se encontró el mantenedor activo. Inicia sesión nuevamente.");
       }
 
-      const [puntosData, estadosData] = await Promise.all([
-        api.puntosMantenedor(mantenedorId),
-        api.estadosPunto(),
-      ]);
-
+      const puntosData = await api.puntosMantenedor(mantenedorId);
       setPuntos(puntosData);
-      setEstados(estadosData);
-
-      const estadosIniciales: Record<number, number> = {};
-      const descripcionesIniciales: Record<number, string> = {};
-
-      puntosData.forEach((punto) => {
-        estadosIniciales[punto.id] = punto.estadoId ?? 1;
-        descripcionesIniciales[punto.id] = "";
-      });
-
-      setEstadoSeleccionado(estadosIniciales);
-      setDescripcion(descripcionesIniciales);
+      setSuccess("Puntos actualizados correctamente.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los puntos del mantenedor");
     } finally {
@@ -94,33 +89,6 @@ export function MaintainerDashboard() {
   useEffect(() => {
     cargarDatos();
   }, []);
-
-  const actualizarEstado = async (punto: PuntoReciclaje) => {
-    const nuevoEstadoId = estadoSeleccionado[punto.id];
-
-    if (!nuevoEstadoId) {
-      setError("Debes seleccionar un estado válido.");
-      return;
-    }
-
-    setSavingId(punto.id);
-    setError("");
-    setSuccess("");
-
-    try {
-      await api.actualizarEstadoPuntoMantenedor(mantenedorId, punto.id, {
-        estadoId: Number(nuevoEstadoId),
-        descripcion: descripcion[punto.id] ?? "",
-      });
-
-      setSuccess(`Estado de "${punto.nombre}" actualizado correctamente.`);
-      await cargarDatos();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado del punto");
-    } finally {
-      setSavingId(null);
-    }
-  };
 
   return (
     <div className="p-8 space-y-8 bg-[#f5f7f5]">
@@ -133,7 +101,7 @@ export function MaintainerDashboard() {
             </h1>
           </div>
           <p className="text-gray-600 mt-2">
-            Revisa tus puntos asignados y actualiza su estado operativo.
+            Revisa los puntos de reciclaje que tienes asignados y entra al detalle para gestionarlos.
           </p>
         </div>
 
@@ -155,14 +123,14 @@ export function MaintainerDashboard() {
         </div>
       )}
 
-      {success && (
+      {success && !error && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 flex gap-2">
           <CheckCircle className="w-5 h-5 shrink-0" />
           <span>{success}</span>
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <Card className="border-[#6fae7f]/20">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-[#2d4437] mb-1">{puntos.length}</p>
@@ -180,7 +148,14 @@ export function MaintainerDashboard() {
         <Card className="border-[#6fae7f]/20">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-yellow-600 mb-1">{totalAlertas}</p>
-            <p className="text-sm text-gray-600">Requieren atención</p>
+            <p className="text-sm text-gray-600">Puntos con alerta</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#6fae7f]/20">
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-red-600 mb-1">{totalMaterialesLlenos}</p>
+            <p className="text-sm text-gray-600">Materiales llenos</p>
           </CardContent>
         </Card>
       </div>
@@ -205,112 +180,91 @@ export function MaintainerDashboard() {
         </Card>
       ) : (
         <div className="grid xl:grid-cols-2 gap-6">
-          {puntos.map((punto) => (
-            <Card key={punto.id} className="border-[#6fae7f]/20 hover:shadow-lg transition">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-[#2d4437]">{punto.nombre}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {punto.direccion}
-                    </CardDescription>
+          {puntos.map((punto) => {
+            const materialesLlenos = (punto.materialesDetalle ?? []).filter((material) => material.lleno);
+            const materialesDisponibles = (punto.materialesDetalle ?? []).filter((material) => material.disponible);
+
+            return (
+              <Card key={punto.id} className="border-[#6fae7f]/20 hover:shadow-lg transition">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-[#2d4437]">{punto.nombre}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {punto.direccion}
+                      </CardDescription>
+                    </div>
+
+                    <Badge className={estadoColor(punto.estado)}>
+                      {punto.estado}
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-5">
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Comuna</p>
+                      <p className="font-medium text-[#2d4437]">{punto.comuna}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-500">Radio validación</p>
+                      <p className="font-medium text-[#2d4437]">{punto.radioValidacionM} m</p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-500">Materiales disponibles</p>
+                      <p className="font-medium text-green-700">{materialesDisponibles.length}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-500">Materiales llenos</p>
+                      <p className="font-medium text-red-700">{materialesLlenos.length}</p>
+                    </div>
                   </div>
 
-                  <Badge className={estadoColor(punto.estado)}>
-                    {punto.estado}
-                  </Badge>
-                </div>
-              </CardHeader>
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-[#3d5a47]" />
+                      <p className="text-sm font-medium text-[#2d4437]">
+                        Resumen de materiales
+                      </p>
+                    </div>
 
-              <CardContent className="space-y-5">
-                <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Comuna</p>
-                    <p className="font-medium text-[#2d4437]">{punto.comuna}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(punto.materialesDetalle ?? []).length > 0 ? (
+                        punto.materialesDetalle.map((material) => (
+                          <Badge
+                            key={`${punto.id}-${material.materialId}`}
+                            variant="outline"
+                            className={
+                              material.lleno
+                                ? "border-red-200 text-red-700 bg-red-50"
+                                : "border-green-200 text-green-700 bg-green-50"
+                            }
+                          >
+                            {material.nombre}: {material.lleno ? "Lleno" : "Disponible"}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          Sin materiales asociados.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    <p className="text-gray-500">Radio validación</p>
-                    <p className="font-medium text-[#2d4437]">{punto.radioValidacionM} m</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500">Latitud</p>
-                    <p className="font-medium text-[#2d4437]">{punto.latitud}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500">Longitud</p>
-                    <p className="font-medium text-[#2d4437]">{punto.longitud}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Materiales aceptados</p>
-                  <div className="flex flex-wrap gap-2">
-                    {punto.materiales.length > 0 ? (
-                      punto.materiales.map((material, index) => (
-                        <Badge
-                          key={`${punto.id}-${material}-${index}`}
-                          variant="outline"
-                          className="border-[#6fae7f]"
-                        >
-                          {material}
-                        </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">Sin materiales asociados</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3 border-t pt-4">
-                  <div className="space-y-2">
-                    <Label>Nuevo estado</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                      value={estadoSeleccionado[punto.id] ?? punto.estadoId ?? ""}
-                      onChange={(e) =>
-                        setEstadoSeleccionado({
-                          ...estadoSeleccionado,
-                          [punto.id]: Number(e.target.value),
-                        })
-                      }
-                    >
-                      {estados.map((estado) => (
-                        <option key={getRowId(estado)} value={getRowId(estado)}>
-                          {getRowName(estado)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Observación</Label>
-                    <Textarea
-                      value={descripcion[punto.id] ?? ""}
-                      onChange={(e) =>
-                        setDescripcion({
-                          ...descripcion,
-                          [punto.id]: e.target.value,
-                        })
-                      }
-                      placeholder="Ej: Contenedor lleno, punto limpiado, requiere retiro..."
-                    />
-                  </div>
-
-                  <Button
-                    onClick={() => actualizarEstado(punto)}
-                    disabled={savingId === punto.id}
-                    className="w-full bg-[#3d5a47] hover:bg-[#2d4437]"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    {savingId === punto.id ? "Guardando..." : "Actualizar estado"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <Link to={`/mantenedor/puntos/${punto.id}`}>
+                    <Button className="w-full bg-[#3d5a47] hover:bg-[#2d4437]">
+                      Gestionar punto
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

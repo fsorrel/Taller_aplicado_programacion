@@ -100,6 +100,15 @@ export type Medalla = {
   icono: string;
 };
 
+export type PuntoMaterialDetalle = {
+  materialId: number;
+  nombre: string;
+  capacidadCompactado: number;
+  actualCompactado: number;
+  lleno: boolean;
+  disponible: boolean;
+};
+
 export type PuntoReciclaje = {
   id: number;
   nombre: string;
@@ -115,9 +124,16 @@ export type PuntoReciclaje = {
   mantenedorId: number | null;
   mantenedor: string | null;
   materiales: string[];
+  materialesDetalle: PuntoMaterialDetalle[];
 };
 
 export type PuntoMaterialRequest = {
+  materialId: number;
+  capacidadCompactado: number;
+  actualCompactado: number;
+};
+
+export type PuntoMaterialUpdateRequest = {
   materialId: number;
   capacidadCompactado: number;
   actualCompactado: number;
@@ -315,6 +331,16 @@ export const api = {
     body: PuntoEstadoRequest
   ) =>
     apiFetch<PuntoReciclaje>(`/api/puntos/mantenedor/${mantenedorId}/${puntoId}/estado`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  actualizarMaterialesPuntoMantenedor: (
+    mantenedorId: number,
+    puntoId: number,
+    body: PuntoMaterialUpdateRequest[]
+  ) =>
+    apiFetch<PuntoReciclaje>(`/api/puntos/mantenedor/${mantenedorId}/${puntoId}/materiales`, {
       method: "PUT",
       body: JSON.stringify(body),
     }),
