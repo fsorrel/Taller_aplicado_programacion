@@ -181,6 +181,16 @@ export type Premio = {
   activo: string;
 };
 
+export type CanjeResponse = {
+  id: number;
+  premio: string;
+  puntosGastados: number;
+  codigoCanje: string;
+  estado: string;
+  puntosRestantes: number;
+  fechaCanje: string;
+};
+
 export type Dashboard = {
   usuario: UsuarioResumen;
   resumen: ResumenReciclaje;
@@ -346,7 +356,15 @@ export const api = {
     }),
 
   materiales: () => apiFetch<Material[]>("/api/materiales"),
+
   guias: () => apiFetch<Guia[]>("/api/guias"),
+
+  premios: () => apiFetch<Premio[]>("/api/premios"),
+
+  canjearPremio: (premioId: number, usuarioId: number) =>
+    apiFetch<CanjeResponse>(`/api/premios/${premioId}/canjear?usuarioId=${usuarioId}`, {
+      method: "POST",
+    }),
 
   usuarios: () => apiFetch<BdRow[]>("/api/bd/usuarios"),
 
@@ -363,6 +381,7 @@ export const api = {
   estadosPunto: () => apiFetch<BdRow[]>("/api/bd/estado-punto"),
 
   formularios: () => apiFetch<BdRow[]>("/api/bd/formularios-reciclaje"),
+
   detalleFormularios: () => apiFetch<BdRow[]>("/api/bd/detalle-formulario-materiales"),
 
   crearFormulario: (usuarioId: number, body: FormularioRequest) =>

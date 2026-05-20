@@ -10,6 +10,7 @@ import {
   BarChart3,
   MapPin,
   Users,
+  Trophy,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -18,8 +19,8 @@ import {
   getNormalizedRoleName,
   getRolePath,
   refreshCurrentUserFromBackend,
-  UsuarioSesion,
 } from "../lib/api";
+import type { UsuarioSesion } from "../lib/api";
 import { useEffect, useMemo, useState } from "react";
 
 const navItems = {
@@ -28,6 +29,7 @@ const navItems = {
     { icon: Map, label: "Mapa de Reciclaje", path: "/ciudadano/mapa" },
     { icon: ClipboardList, label: "Formularios", path: "/ciudadano/formularios" },
     { icon: BookOpen, label: "Guías", path: "/ciudadano/guias" },
+    { icon: Trophy, label: "Premios", path: "/ciudadano/premios" },
     { icon: User, label: "Mi Perfil", path: "/ciudadano/perfil" },
   ],
   admin: [

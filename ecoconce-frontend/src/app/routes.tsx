@@ -8,6 +8,7 @@ import { RecyclingMap } from "./pages/RecyclingMap";
 import { FormulariosReciclaje } from "./pages/FormulariosReciclaje";
 import { Guides } from "./pages/Guides";
 import { CitizenProfile } from "./pages/CitizenProfile";
+import { PremiosCiudadano } from "./pages/PremiosCiudadano";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminUsers } from "./pages/AdminUsers";
 import { MaintainerDashboard } from "./pages/MaintainerDashboard";
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: "mapa", Component: RecyclingMap },
       { path: "formularios", Component: FormulariosReciclaje },
       { path: "guias", Component: Guides },
+      { path: "premios", Component: PremiosCiudadano },
       { path: "perfil", Component: CitizenProfile },
     ],
   },
